@@ -6,9 +6,7 @@ import sys
 from decimal import Decimal
 
 import pytest
-from dotenv import load_dotenv
 from sqlalchemy import func, select, text
-from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from app.models import Cliente, Editorial, Libro, RenglonVenta, Venta
@@ -17,17 +15,9 @@ from scripts.seed import SeedError, seed
 
 
 @pytest.fixture
-async def seed_database_url():
-    load_dotenv()
-    url = os.getenv("SEED_TEST_DATABASE_URL") or os.getenv("TEST_DATABASE_URL")
-    if not url:
-        pytest.fail("Falta TEST_DATABASE_URL para las pruebas PostgreSQL del seed.")
-    parsed = make_url(url)
-    if parsed.drivername != "postgresql+asyncpg" or not (parsed.database or "").endswith("_test"):
-        pytest.fail("La base del seed debe usar PostgreSQL asyncpg y terminar en _test.")
-    production = os.getenv("DATABASE_URL")
-    if production and make_url(production).set(drivername=parsed.drivername) == parsed:
-        pytest.fail("Las pruebas del seed requieren una base distinta de DATABASE_URL.")
+async def seed_database_url(test_database_url):
+    # The shared fixture validates isolation and applies Alembic before any reset.
+    url = test_database_url
     engine = create_async_engine(url)
     async with engine.begin() as connection:
         await connection.execute(
