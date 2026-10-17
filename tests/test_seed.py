@@ -12,6 +12,7 @@ from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from app.models import Cliente, Editorial, Libro, RenglonVenta, Venta
+from scripts import seed as seed_module
 from scripts.seed import SeedError, seed
 
 
@@ -29,10 +30,12 @@ async def seed_database_url():
         pytest.fail("Las pruebas del seed requieren una base distinta de DATABASE_URL.")
     engine = create_async_engine(url)
     async with engine.begin() as connection:
-        await connection.execute(text(
-            "TRUNCATE renglon_venta, venta, perfil_cliente, libro_autor, libro, "
-            "cliente, autor, genero, editorial RESTART IDENTITY CASCADE"
-        ))
+        await connection.execute(
+            text(
+                "TRUNCATE renglon_venta, venta, perfil_cliente, libro_autor, libro, "
+                "cliente, autor, genero, editorial RESTART IDENTITY CASCADE"
+            )
+        )
     await engine.dispose()
     return url
 
@@ -63,10 +66,15 @@ async def test_repetition_preserves_edited_prices_and_registered_sales(seed_data
         async with async_sessionmaker(engine, expire_on_commit=False)() as session:
             book = await session.get(Libro, 1)
             book.precio = Decimal("30000.00")
-            session.add(Venta(
-                cliente_id=1, total=Decimal("25000.00"),
-                renglones=[RenglonVenta(libro_id=1, cantidad=1, precio_unitario=Decimal("25000.00"))],
-            ))
+            session.add(
+                Venta(
+                    cliente_id=1,
+                    total=Decimal("25000.00"),
+                    renglones=[
+                        RenglonVenta(libro_id=1, cantidad=1, precio_unitario=Decimal("25000.00"))
+                    ],
+                )
+            )
             await session.commit()
         await seed(seed_database_url)
         async with async_sessionmaker(engine)() as session:
@@ -115,7 +123,8 @@ def test_cli_requires_both_reset_flags_before_connecting(flags):
     result = subprocess.run(
         [sys.executable, "-m", "scripts.seed", *flags],
         env={**os.environ, "DATABASE_URL": "postgresql+asyncpg://secret:password@invalid/db"},
-        capture_output=True, text=True,
+        capture_output=True,
+        text=True,
     )
     assert result.returncode == 1
     assert "--reset" in result.stderr and "--confirm-reset" in result.stderr
@@ -127,3 +136,44 @@ def test_cli_requires_both_reset_flags_before_connecting(flags):
 async def test_invalid_database_urls_fail_with_a_safe_message(url):
     with pytest.raises(SeedError, match="PostgreSQL"):
         await seed(url)
+
+
+async def test_failed_reset_rolls_back_truncation_and_preserves_previous_data(
+    seed_database_url, monkeypatch
+):
+    await seed(seed_database_url)
+    engine = create_async_engine(seed_database_url)
+    original_entities = seed_module.demonstration_entities
+
+    def conflicting_entities():
+        return [*original_entities(), Cliente(id=3, nombre="Duplicado", email="ana@example.com")]
+
+    try:
+        async with async_sessionmaker(engine)() as session:
+            book = await session.get(Libro, 1)
+            book.precio = Decimal("999.99")
+            await session.commit()
+        monkeypatch.setattr(seed_module, "demonstration_entities", conflicting_entities)
+        with pytest.raises(SeedError, match="No se pudo cargar"):
+            await seed(seed_database_url, reset=True)
+        async with async_sessionmaker(engine)() as session:
+            assert (await session.get(Libro, 1)).precio == Decimal("999.99")
+            assert await session.scalar(select(func.count()).select_from(Cliente)) == 2
+    finally:
+        await engine.dispose()
+
+
+def test_cli_hides_credentials_and_traceback_for_invalid_port():
+    result = subprocess.run(
+        [sys.executable, "-m", "scripts.seed"],
+        env={
+            **os.environ,
+            "DATABASE_URL": "postgresql+asyncpg://private:secret@localhost:invalid/db",
+        },
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 1
+    assert "PostgreSQL" in result.stderr
+    assert "private" not in result.stderr and "secret" not in result.stderr
+    assert "Traceback" not in result.stderr
