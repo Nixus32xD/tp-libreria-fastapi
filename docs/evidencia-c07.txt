@@ -1,0 +1,34 @@
+C-07 | SQL real capturado con before_cursor_execute de SQLAlchemy.
+PostgreSQL; fixtures aisladas migradas con Alembic.
+
+GET /libros/1 (1 autor) -> HTTP 200; SELECT = 2
+SELECT libro.id, libro.isbn, libro.titulo, libro.precio, libro.stock, libro.editorial_id, libro.genero_id, editorial_1.id AS id_1, editorial_1.nombre, editorial_1.pais, genero_1.id AS id_2, genero_1.nombre AS nombre_1 
+FROM libro LEFT OUTER JOIN editorial AS editorial_1 ON editorial_1.id = libro.editorial_id LEFT OUTER JOIN genero AS genero_1 ON genero_1.id = libro.genero_id 
+WHERE libro.id = $1::INTEGER
+SELECT libro_autor.libro_id AS libro_autor_libro_id, libro_autor.autor_id AS libro_autor_autor_id, libro_autor.rol AS libro_autor_rol, libro_autor.orden AS libro_autor_orden, autor_1.id AS autor_1_id, autor_1.nombre AS autor_1_nombre, autor_1.nacionalidad AS autor_1_nacionalidad 
+FROM libro_autor LEFT OUTER JOIN autor AS autor_1 ON autor_1.id = libro_autor.autor_id 
+WHERE libro_autor.libro_id IN ($1::INTEGER)
+
+GET /libros/2 (4 autores) -> HTTP 200; SELECT = 2
+SELECT libro.id, libro.isbn, libro.titulo, libro.precio, libro.stock, libro.editorial_id, libro.genero_id, editorial_1.id AS id_1, editorial_1.nombre, editorial_1.pais, genero_1.id AS id_2, genero_1.nombre AS nombre_1 
+FROM libro LEFT OUTER JOIN editorial AS editorial_1 ON editorial_1.id = libro.editorial_id LEFT OUTER JOIN genero AS genero_1 ON genero_1.id = libro.genero_id 
+WHERE libro.id = $1::INTEGER
+SELECT libro_autor.libro_id AS libro_autor_libro_id, libro_autor.autor_id AS libro_autor_autor_id, libro_autor.rol AS libro_autor_rol, libro_autor.orden AS libro_autor_orden, autor_1.id AS autor_1_id, autor_1.nombre AS autor_1_nombre, autor_1.nacionalidad AS autor_1_nacionalidad 
+FROM libro_autor LEFT OUTER JOIN autor AS autor_1 ON autor_1.id = libro_autor.autor_id 
+WHERE libro_autor.libro_id IN ($1::INTEGER)
+
+GET /ventas/1 (1 renglón) -> HTTP 200; SELECT = 2
+SELECT venta.id, venta.cliente_id, venta.fecha, venta.total, cliente_1.id AS id_1, cliente_1.nombre, cliente_1.email 
+FROM venta LEFT OUTER JOIN cliente AS cliente_1 ON cliente_1.id = venta.cliente_id 
+WHERE venta.id = $1::INTEGER
+SELECT renglon_venta.venta_id AS renglon_venta_venta_id, renglon_venta.id AS renglon_venta_id, renglon_venta.libro_id AS renglon_venta_libro_id, renglon_venta.cantidad AS renglon_venta_cantidad, renglon_venta.precio_unitario AS renglon_venta_precio_unitario, libro_1.id AS libro_1_id, libro_1.isbn AS libro_1_isbn, libro_1.titulo AS libro_1_titulo, libro_1.precio AS libro_1_precio, libro_1.stock AS libro_1_stock, libro_1.editorial_id AS libro_1_editorial_id, libro_1.genero_id AS libro_1_genero_id 
+FROM renglon_venta LEFT OUTER JOIN libro AS libro_1 ON libro_1.id = renglon_venta.libro_id 
+WHERE renglon_venta.venta_id IN ($1::INTEGER)
+
+GET /ventas/2 (2 renglones) -> HTTP 200; SELECT = 2
+SELECT venta.id, venta.cliente_id, venta.fecha, venta.total, cliente_1.id AS id_1, cliente_1.nombre, cliente_1.email 
+FROM venta LEFT OUTER JOIN cliente AS cliente_1 ON cliente_1.id = venta.cliente_id 
+WHERE venta.id = $1::INTEGER
+SELECT renglon_venta.venta_id AS renglon_venta_venta_id, renglon_venta.id AS renglon_venta_id, renglon_venta.libro_id AS renglon_venta_libro_id, renglon_venta.cantidad AS renglon_venta_cantidad, renglon_venta.precio_unitario AS renglon_venta_precio_unitario, libro_1.id AS libro_1_id, libro_1.isbn AS libro_1_isbn, libro_1.titulo AS libro_1_titulo, libro_1.precio AS libro_1_precio, libro_1.stock AS libro_1_stock, libro_1.editorial_id AS libro_1_editorial_id, libro_1.genero_id AS libro_1_genero_id 
+FROM renglon_venta LEFT OUTER JOIN libro AS libro_1 ON libro_1.id = renglon_venta.libro_id 
+WHERE renglon_venta.venta_id IN ($1::INTEGER)

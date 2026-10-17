@@ -1,0 +1,107 @@
+# REST Client (VS Code). Archivo independiente: resetear antes de ejecutarlo.
+# python -m scripts.seed --reset --confirm-reset (sólo base local de demostración).
+# Ejecutar de arriba hacia abajo; no continuar el estado de casos-minimos.http.
+@baseUrl = http://127.0.0.1:8000
+
+### Editorial nueva, HTTP 201 id2
+POST {{baseUrl}}/editoriales/
+Content-Type: application/json
+
+{"nombre":"Ediciones del Oeste","pais":"Argentina"}
+
+### HTTP 200; paginación con limit y offset
+GET {{baseUrl}}/editoriales/?limit=1&offset=1
+
+### HTTP 200; nombre y país
+GET {{baseUrl}}/editoriales/2
+
+### HTTP 200; cambia sólo país y conserva nombre
+PATCH {{baseUrl}}/editoriales/2
+Content-Type: application/json
+
+{"pais":"Uruguay"}
+
+### HTTP 200; libros de editorial
+GET {{baseUrl}}/editoriales/1/libros?limit=2&offset=0
+
+### Género nuevo, HTTP 201 id3
+POST {{baseUrl}}/generos/
+Content-Type: application/json
+
+{"nombre":"Ensayo"}
+
+### HTTP 200
+GET {{baseUrl}}/generos/?limit=20&offset=0
+
+### HTTP 200; filtro de pertenencia
+GET {{baseUrl}}/generos/1/libros?limit=2&offset=0
+
+### Autor nuevo, HTTP 201 id6
+POST {{baseUrl}}/autores/
+Content-Type: application/json
+
+{"nombre":"Autor de demostración","nacionalidad":"Argentina"}
+
+### HTTP 200
+GET {{baseUrl}}/autores/6
+
+### HTTP 200; conserva nacionalidad
+PATCH {{baseUrl}}/autores/6
+Content-Type: application/json
+
+{"nombre":"Autor de ejemplo"}
+
+### HTTP 200; cada libro incluye rol y orden
+GET {{baseUrl}}/autores/3/libros?limit=20&offset=0
+
+### Libro nuevo, HTTP 201 id5; agregación y autoría con datos
+POST {{baseUrl}}/libros/
+Content-Type: application/json
+
+{"isbn":"978-950-00-0006-6","titulo":"Libro de demostración","precio":"21000.00","stock":4,"editorial_id":1,"genero_id":1,"autores":[{"autor_id":3,"rol":"coautor","orden":1},{"autor_id":4,"rol":"coautor","orden":2}]}
+
+### HTTP 200; título case-insensitive, filtro género y paginación
+GET {{baseUrl}}/libros/?titulo=DEMOSTRACI&genero_id=1&limit=1&offset=0
+
+### HTTP 200; cambia sólo stock y quita género opcional
+PATCH {{baseUrl}}/libros/5
+Content-Type: application/json
+
+{"stock":8,"genero_id":null}
+
+### HTTP 422; título obligatorio no acepta null
+PATCH {{baseUrl}}/libros/5
+Content-Type: application/json
+
+{"titulo":null}
+
+### Cliente nuevo, HTTP 201 id3
+POST {{baseUrl}}/clientes/
+Content-Type: application/json
+
+{"nombre":"Cliente de ejemplo","email":"ejemplo@example.com"}
+
+### HTTP 200; perfil:null
+GET {{baseUrl}}/clientes/3
+
+### HTTP 200; email omitido se conserva
+PATCH {{baseUrl}}/clientes/3
+Content-Type: application/json
+
+{"nombre":"Cliente actualizado"}
+
+### HTTP 200; todas las ventas también se paginan
+GET {{baseUrl}}/ventas/?limit=1&offset=0
+
+### HTTP 200; ventas del cliente
+GET {{baseUrl}}/clientes/2/ventas?limit=1&offset=0
+
+### HTTP 404: recurso inexistente
+GET {{baseUrl}}/libros/99999
+
+### HTTP 422: DTO de alta no admite id
+POST {{baseUrl}}/generos/
+Content-Type: application/json
+
+{"id":900,"nombre":"Inválido"}
+

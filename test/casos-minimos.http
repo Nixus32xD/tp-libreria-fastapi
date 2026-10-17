@@ -1,0 +1,130 @@
+# REST Client (VS Code): usa referencias a las respuestas de peticiones nombradas.
+# Inicio conocido: python -m scripts.seed --reset --confirm-reset (sólo en la base local de demostración).
+# Ejecutar de arriba hacia abajo una vez. Repetir requiere volver al estado inicial.
+# Las secuencias PostgreSQL avanzan incluso ante rollback; por eso ventas usan su id devuelto.
+@baseUrl = http://127.0.0.1:8000
+
+### Salud, HTTP 200 {"estado":"vivo"}; no consulta la base
+GET {{baseUrl}}/health/live
+
+### Preparación, HTTP 200 si PostgreSQL responde SELECT 1
+GET {{baseUrl}}/health/ready
+
+### C-01: id no entero, HTTP 422 antes de ejecutar el handler
+GET {{baseUrl}}/libros/no-es-entero
+
+### C-02a: ISBN existente, HTTP 409 con mensaje propio
+POST {{baseUrl}}/libros/
+Content-Type: application/json
+
+{"isbn":"978-950-00-0001-1","titulo":"Duplicado","precio":"25000.00","stock":1,"editorial_id":1,"genero_id":1,"autores":[{"autor_id":1,"rol":"autor","orden":1}]}
+
+### C-02b: email existente, HTTP 409 con mensaje propio
+POST {{baseUrl}}/clientes/
+Content-Type: application/json
+
+{"nombre":"Otra persona","email":"ana@example.com"}
+
+### C-03 preparación: primer perfil, HTTP 201
+POST {{baseUrl}}/clientes/1/perfil
+Content-Type: application/json
+
+{"telefono":"2615551234","direccion":"San Martín 100, Mendoza"}
+
+### C-03: segundo perfil del mismo cliente, HTTP 409
+POST {{baseUrl}}/clientes/1/perfil
+Content-Type: application/json
+
+{"telefono":"2615555678","direccion":"Otra dirección"}
+
+### C-04a: editorial inexistente, HTTP 409; no se crea el libro
+POST {{baseUrl}}/libros/
+Content-Type: application/json
+
+{"isbn":"978-test-editorial","titulo":"Editorial inexistente","precio":"100.00","stock":1,"editorial_id":99999,"genero_id":1,"autores":[{"autor_id":1,"rol":"autor","orden":1}]}
+
+### C-04b: autor inexistente, HTTP 409; rollback de libro y autorías
+POST {{baseUrl}}/libros/
+Content-Type: application/json
+
+{"isbn":"978-test-autor","titulo":"Autor inexistente","precio":"100.00","stock":1,"editorial_id":1,"genero_id":1,"autores":[{"autor_id":1,"rol":"autor","orden":1},{"autor_id":99999,"rol":"traductor","orden":2}]}
+
+### C-05a: libro inexistente, HTTP 409 sin venta ni renglones parciales
+POST {{baseUrl}}/ventas/
+Content-Type: application/json
+
+{"cliente_id":2,"renglones":[{"libro_id":1,"cantidad":1},{"libro_id":99999,"cantidad":1}]}
+
+### C-05b: cliente inexistente, HTTP 409
+POST {{baseUrl}}/ventas/
+Content-Type: application/json
+
+{"cliente_id":99999,"renglones":[{"libro_id":1,"cantidad":1}]}
+
+### C-06: HTTP 201, total "77000.00"; precios "25000.00" y "27000.00"
+# Fecha con zona horaria; aviso simulado aparece en el log después de enviar la respuesta.
+# @name ventaDosRenglones
+POST {{baseUrl}}/ventas/
+Content-Type: application/json
+
+{"cliente_id":2,"renglones":[{"libro_id":1,"cantidad":2},{"libro_id":4,"cantidad":1}]}
+
+### C-07a: HTTP 200; con SQL_ECHO=true observar 2 SELECT (1 autor)
+GET {{baseUrl}}/libros/1
+
+### C-07b: HTTP 200; misma cantidad 2 SELECT (2 autores)
+GET {{baseUrl}}/libros/3
+
+### C-07c: HTTP 200; 2 SELECT (2 renglones, venta de C-06)
+GET {{baseUrl}}/ventas/{{ventaDosRenglones.response.body.$.id}}
+
+### C-07 preparar venta con un solo renglón, HTTP 201
+# @name ventaUnRenglon
+POST {{baseUrl}}/ventas/
+Content-Type: application/json
+
+{"cliente_id":2,"renglones":[{"libro_id":1,"cantidad":1}]}
+
+### C-07d: HTTP 200; misma cantidad 2 SELECT (1 renglón)
+GET {{baseUrl}}/ventas/{{ventaUnRenglon.response.body.$.id}}
+
+### C-08: intento de inyección literal, HTTP 200 []
+GET {{baseUrl}}/libros/?titulo=%27%20OR%20%271%27%3D%271
+
+### Contrato: mismo libro en dos renglones, HTTP 422
+POST {{baseUrl}}/ventas/
+Content-Type: application/json
+
+{"cliente_id":2,"renglones":[{"libro_id":1,"cantidad":1},{"libro_id":1,"cantidad":2}]}
+
+### Contrato: total enviado por cliente, HTTP 422
+POST {{baseUrl}}/ventas/
+Content-Type: application/json
+
+{"cliente_id":2,"total":"1.00","renglones":[{"libro_id":1,"cantidad":1}]}
+
+### Contrato: renglones vacíos, HTTP 422
+POST {{baseUrl}}/ventas/
+Content-Type: application/json
+
+{"cliente_id":2,"renglones":[]}
+
+### Paginación inválida, HTTP 422
+GET {{baseUrl}}/libros/?limit=101&offset=0
+
+### Snapshot: cambia sólo precio del catálogo, HTTP 200
+PATCH {{baseUrl}}/libros/1
+Content-Type: application/json
+
+{"precio":"30000.00"}
+
+### Snapshot: HTTP 200, venta anterior sigue con total "77000.00" y precio "25000.00"
+GET {{baseUrl}}/ventas/{{ventaDosRenglones.response.body.$.id}}
+
+### Ventas inmutables, HTTP 405
+PATCH {{baseUrl}}/ventas/{{ventaDosRenglones.response.body.$.id}}
+Content-Type: application/json
+
+{"total":"1.00"}
+
+
