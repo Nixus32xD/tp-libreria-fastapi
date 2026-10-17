@@ -11,4 +11,6 @@ async def get_session(request: Request) -> AsyncIterator[AsyncSession]:
         yield session
 
 
-SessionDependency = Annotated[AsyncSession, Depends(get_session)]
+# Los handlers devuelven DTOs o datos ya precargados; la sesión se libera antes
+# de enviar la respuesta y de ejecutar cualquier tarea de segundo plano.
+SessionDependency = Annotated[AsyncSession, Depends(get_session, scope="function")]
