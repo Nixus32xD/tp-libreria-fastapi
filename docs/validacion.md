@@ -73,5 +73,5 @@ Los tests aplican Alembic y reinician exclusivamente esa base entre casos. No se
   catálogo vigente, porque la consigna no pide una copia histórica del título.
 - No se descuenta stock al vender: se cumple su CHECK no negativo y se mantiene el
   alcance de las reglas de negocio indicadas.
-- El repositorio se creó privado. Para una entrega a terceros se debe concederles
-  acceso o cambiar su visibilidad desde GitHub.
+- El repositorio es público para que el profesor pueda consultar el código y la
+  evidencia sin una invitación de acceso.
